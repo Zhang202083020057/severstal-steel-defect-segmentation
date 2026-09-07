@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Large competition data and generated artifacts are never committed.
+severstal-steel-defect-detection/
+*.zip
+*.rar
+*.pt
+*.pth
+outputs/
+runs/
+submission*.csv
+
