@@ -13,6 +13,9 @@
 9. [08_Kaggle免费GPU运行](guides/08_Kaggle免费GPU运行.md)
 10. [实验记录表](guides/实验记录表.md)
 
+当前已完成 B0 正式基线：U-Net + ResNet34，验证集最佳 Dice 为 `0.906335`。
+详细配置、逐轮结果和后续实验计划见 [B0 基线实验记录](experiments/B0_baseline_2026-09-08.md)。
+
 ## 目录
 
 ```text
@@ -25,7 +28,8 @@ autodl_project/
 ├── predict.py             # TTA、后处理和提交文件生成
 ├── requirements.txt
 ├── requirements-kaggle.txt # Kaggle依赖（避免覆盖GPU对应的PyTorch）
-└── guides/                # 逐步中文说明
+├── guides/                # 逐步中文说明
+└── experiments/           # 可复现实验配置与结果
 ```
 
 ## 最短执行路径
