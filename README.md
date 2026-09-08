@@ -10,7 +10,8 @@
 6. [05_阈值、TTA与提交](guides/05_推理与提交.md)
 7. [06_结果分析与文书](guides/06_结果分析与文书.md)
 8. [07_Kaggle高分方案与选择依据](guides/07_Kaggle高分方案与选择依据.md)
-9. [实验记录表](guides/实验记录表.md)
+9. [08_Kaggle免费GPU运行](guides/08_Kaggle免费GPU运行.md)
+10. [实验记录表](guides/实验记录表.md)
 
 ## 目录
 
@@ -23,6 +24,7 @@ autodl_project/
 ├── tune_thresholds.py     # 在验证集搜索四类阈值
 ├── predict.py             # TTA、后处理和提交文件生成
 ├── requirements.txt
+├── requirements-kaggle.txt # Kaggle依赖（避免覆盖GPU对应的PyTorch）
 └── guides/                # 逐步中文说明
 ```
 
