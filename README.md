@@ -8,7 +8,6 @@
 4. [03_跑通基线模型](guides/03_跑通基线.md)
 5. [04_运行优化模型](guides/04_优化实验.md)
 6. [05_阈值、TTA与提交](guides/05_推理与提交.md)
-7. [06_结果分析与文书](guides/06_结果分析与文书.md)
 8. [07_Kaggle高分方案与选择依据](guides/07_Kaggle高分方案与选择依据.md)
 9. [08_Kaggle免费GPU运行](guides/08_Kaggle免费GPU运行.md)
 10. [实验记录表](guides/实验记录表.md)
