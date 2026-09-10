@@ -13,7 +13,7 @@
 10. [实验记录表](guides/实验记录表.md)
 
 当前已完成 B0 正式基线：U-Net + ResNet34，验证集最佳 Dice 为 `0.906335`；Kaggle 代码提交的 Public / Private Dice 分别为 `0.86086` / `0.85772`。
-详细配置、逐轮结果、代码提交方式和后续实验计划见 [B0 基线实验记录](experiments/B0_baseline_2026-09-08.md)。
+详细配置、逐轮结果、数据审计与类别不平衡解释、代码提交方式和后续实验计划见 [B0 基线实验记录](experiments/B0_baseline_2026-09-08.md)。
 
 Kaggle 上复现这次训练与推理可运行：
 
