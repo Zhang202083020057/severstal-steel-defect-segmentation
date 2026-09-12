@@ -16,6 +16,7 @@ from steel_common import (
     NUM_CLASSES,
     SegmentationLoss,
     SteelDataset,
+    build_c2_transforms,
     build_model,
     build_transforms,
     dice_sums,
@@ -87,6 +88,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--encoder-weights", choices=["imagenet", "none"], default="imagenet")
     parser.add_argument("--loss", choices=["bce_dice", "focal_dice"], default="bce_dice")
     parser.add_argument("--augmentation", choices=["basic", "strong"], default="basic")
+    parser.add_argument(
+        "--c2-augmentation",
+        action="store_true",
+        help="Apply the stronger C2 transform only to training images containing Class 2",
+    )
     parser.add_argument("--height", type=int, default=256)
     parser.add_argument("--width", type=int, default=800)
     parser.add_argument("--epochs", type=int, default=15)
@@ -130,9 +136,16 @@ def main() -> None:
     train_transform = build_transforms(
         args.height, args.width, training=True, strong=args.augmentation == "strong"
     )
+    c2_transform = (
+        build_c2_transforms(args.height, args.width) if args.c2_augmentation else None
+    )
     valid_transform = build_transforms(args.height, args.width, training=False, strong=False)
     train_dataset = SteelDataset(
-        args.data_dir / "train_images", train_ids, train_transform, table
+        args.data_dir / "train_images",
+        train_ids,
+        train_transform,
+        table,
+        c2_transform=c2_transform,
     )
     valid_dataset = SteelDataset(
         args.data_dir / "train_images", val_ids, valid_transform, table
@@ -166,7 +179,10 @@ def main() -> None:
     print(f"GPU: {torch.cuda.get_device_name(0)}")
     print(f"train={len(train_ids)} val={len(val_ids)}")
     print(f"positive masks train={class_counts(table, train_ids)} val={class_counts(table, val_ids)}")
-    print(f"model={args.architecture}/{args.encoder}, loss={args.loss}, aug={args.augmentation}")
+    print(
+        f"model={args.architecture}/{args.encoder}, loss={args.loss}, "
+        f"aug={args.augmentation}, c2_augmentation={args.c2_augmentation}"
+    )
 
     best_score = -1.0
     history: list[dict] = []

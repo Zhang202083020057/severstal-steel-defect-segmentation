@@ -15,6 +15,8 @@
 当前已完成 B0 正式基线：U-Net + ResNet34，验证集最佳 Dice 为 `0.906335`；Kaggle 代码提交的 Public / Private Dice 分别为 `0.86086` / `0.85772`。
 详细配置、逐轮结果、数据审计与类别不平衡解释、代码提交方式和后续实验计划见 [B0 基线实验记录](experiments/B0_baseline_2026-09-08.md)。
 
+已完成 C2 定向增强对照：只对含 Class 2 的训练图增加轻微亮度/对比度、Gamma、高斯噪声和 ±2° 旋转，其余设置与 B0 相同且不使用过采样。Validation Dice 为 `0.912265`，Kaggle Public / Private Dice 为 `0.87369` / `0.86944`。整体分数上升，但阈值 0.5 下 C2 仍为全空预测，不能解释为 C2 检测问题已经解决。详见 [C2 定向增强实验记录](experiments/C2_augmentation_2026-09-12/README.md)。
+
 Kaggle 上复现这次训练与推理可运行：
 
 ```bash

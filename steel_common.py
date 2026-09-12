@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import random
 from pathlib import Path
@@ -119,6 +120,30 @@ def build_transforms(height: int, width: int, training: bool, strong: bool) -> A
     return A.Compose(transforms)
 
 
+def build_c2_transforms(height: int, width: int) -> A.Compose:
+    """Build conservative stronger transforms used only by C2 training samples."""
+    noise_parameters = inspect.signature(A.GaussNoise).parameters
+    if "std_range" in noise_parameters:
+        noise = A.GaussNoise(std_range=(0.01, 0.03), p=0.15)
+    else:
+        # Albumentations 1.x expresses the same scale as variance in pixel units.
+        noise = A.GaussNoise(var_limit=(6.5, 58.5), p=0.15)
+    return A.Compose(
+        [
+            A.Resize(height, width),
+            A.HorizontalFlip(p=0.5),
+            A.Rotate(limit=2, border_mode=cv2.BORDER_CONSTANT, p=0.2),
+            A.RandomBrightnessContrast(
+                brightness_limit=0.15, contrast_limit=0.15, p=0.4
+            ),
+            A.RandomGamma(gamma_limit=(85, 115), p=0.25),
+            noise,
+            A.Normalize(mean=(0.485, 0.456, 0.406), std=(0.229, 0.224, 0.225)),
+            ToTensorV2(transpose_mask=True),
+        ]
+    )
+
+
 class SteelDataset(Dataset):
     def __init__(
         self,
@@ -126,11 +151,15 @@ class SteelDataset(Dataset):
         image_ids: list[str],
         transform: A.Compose,
         table: pd.DataFrame | None = None,
+        c2_transform: A.Compose | None = None,
     ) -> None:
+        if c2_transform is not None and table is None:
+            raise ValueError("C2 augmentation requires an annotation table")
         self.image_dir = image_dir
         self.image_ids = image_ids
         self.transform = transform
         self.table = table
+        self.c2_transform = c2_transform
 
     def __len__(self) -> int:
         return len(self.image_ids)
@@ -148,7 +177,14 @@ class SteelDataset(Dataset):
 
         row = self.table.loc[image_id]
         mask = np.stack([rle_decode(row[class_id]) for class_id in range(1, 5)], axis=-1)
-        result = self.transform(image=image, mask=mask)
+        transform = self.transform
+        if (
+            self.c2_transform is not None
+            and pd.notna(row[2])
+            and bool(str(row[2]).strip())
+        ):
+            transform = self.c2_transform
+        result = transform(image=image, mask=mask)
         image_tensor = result["image"].float()
         mask_tensor = result["mask"].float()
         if mask_tensor.shape[0] != NUM_CLASSES and mask_tensor.shape[-1] == NUM_CLASSES:

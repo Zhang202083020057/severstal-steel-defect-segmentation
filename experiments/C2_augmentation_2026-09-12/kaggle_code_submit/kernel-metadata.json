@@ -1,0 +1,23 @@
+{
+  "id": "zhanshuguo/severstal-c2-code-submit",
+  "title": "Severstal C2 Code Submit",
+  "code_file": "c2_submit.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "zhanshuguo/severstal-c2-training-source",
+    "zhanshuguo/severstal-b0-offline-wheels"
+  ],
+  "competition_sources": [
+    "severstal-steel-defect-detection"
+  ],
+  "kernel_sources": [
+    "zhanshuguo/severstal-c2-augmentation-train"
+  ],
+  "model_sources": []
+}

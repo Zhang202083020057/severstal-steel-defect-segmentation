@@ -7,9 +7,10 @@ venv/
 severstal-steel-defect-detection/
 *.zip
 *.rar
+*.tar
 *.pt
 *.pth
 outputs/
 runs/
 submission*.csv
-
+experiments/**/pipeline_check*/
