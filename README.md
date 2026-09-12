@@ -4,6 +4,8 @@
 
 当前项目版本：**V2 / `v0.2.0`（C2 定向在线增强）**。版本改动、结果对照和复现入口见 [版本与实验进度](VERSION_HISTORY.md)。
 
+当前代码位于实验分支 `experiment/c2-targeted-augmentation`；队友可先阅读 [分支查看指南](BRANCH_GUIDE.md)，再通过 GitHub Compare 与 `main` 中的 B0 基线逐文件对照。
+
 1. [00_路线与模型选择](guides/00_路线与模型选择.md)
 2. [01_AutoDL环境与数据上传](guides/01_AutoDL环境与数据上传.md)
 3. [02_数据、Mask与RLE](guides/02_数据与RLE.md)
