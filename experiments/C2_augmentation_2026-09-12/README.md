@@ -1,8 +1,9 @@
-# C2 类别定向增强实验
+# V2｜C2 类别定向增强实验
 
 ## 实验状态
 
 - 状态：训练、离线推理及 Kaggle Code Submission 均已完成。
+- 项目版本：`v0.2.0`。
 - 训练 Notebook：`zhanshuguo/severstal-c2-augmentation-train` Version 2。
 - 离线提交 Notebook：`zhanshuguo/severstal-c2-code-submit` Version 1。
 - Kaggle Submission Ref：`56189473`。

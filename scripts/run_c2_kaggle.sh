@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compare C2-only augmentation against the existing B0 baseline on Kaggle.
+# V2: compare C2-only online augmentation against the V1/B0 baseline on Kaggle.
 # All B0 settings and the seed are unchanged; only --c2-augmentation is added.
 # Usage: bash scripts/run_c2_kaggle.sh [DATA_DIR] [OUTPUT_DIR]
 

@@ -91,7 +91,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--c2-augmentation",
         action="store_true",
-        help="Apply the stronger C2 transform only to training images containing Class 2",
+        help=(
+            "Apply stronger online transforms only to training images containing Class 2; "
+            "this does not oversample or create new image files"
+        ),
     )
     parser.add_argument("--height", type=int, default=256)
     parser.add_argument("--width", type=int, default=800)

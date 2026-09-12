@@ -2,6 +2,8 @@
 
 这是面向初学者的可复现实验工程。完整学习顺序：
 
+当前项目版本：**V2 / `v0.2.0`（C2 定向在线增强）**。版本改动、结果对照和复现入口见 [版本与实验进度](VERSION_HISTORY.md)。
+
 1. [00_路线与模型选择](guides/00_路线与模型选择.md)
 2. [01_AutoDL环境与数据上传](guides/01_AutoDL环境与数据上传.md)
 3. [02_数据、Mask与RLE](guides/02_数据与RLE.md)
@@ -17,10 +19,16 @@
 
 已完成 C2 定向增强对照：只对含 Class 2 的训练图增加轻微亮度/对比度、Gamma、高斯噪声和 ±2° 旋转，其余设置与 B0 相同且不使用过采样。Validation Dice 为 `0.912265`，Kaggle Public / Private Dice 为 `0.87369` / `0.86944`。整体分数上升，但阈值 0.5 下 C2 仍为全空预测，不能解释为 C2 检测问题已经解决。详见 [C2 定向增强实验记录](experiments/C2_augmentation_2026-09-12/README.md)。
 
-Kaggle 上复现这次训练与推理可运行：
+| 版本 | 方案 | Validation Dice | Kaggle Public | Kaggle Private |
+|---|---|---:|---:|---:|
+| V1 | B0：基础增强 | 0.906335 | 0.86086 | 0.85772 |
+| V2 | B0 + C2 定向在线增强，无过采样 | **0.912265** | **0.87369** | **0.86944** |
+
+Kaggle 上复现 V1 或 V2 可分别运行：
 
 ```bash
 bash scripts/run_b0_kaggle.sh
+bash scripts/run_c2_kaggle.sh
 ```
 
 ## 目录
