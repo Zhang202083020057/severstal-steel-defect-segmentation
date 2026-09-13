@@ -12,8 +12,9 @@
 4. [03_跑通基线模型](guides/03_跑通基线.md)
 5. [04_运行优化模型](guides/04_优化实验.md)
 6. [05_阈值、TTA与提交](guides/05_推理与提交.md)
-8. [07_Kaggle高分方案与选择依据](guides/07_Kaggle高分方案与选择依据.md)
-9. [08_Kaggle免费GPU运行](guides/08_Kaggle免费GPU运行.md)
+7. [07_Kaggle高分方案与选择依据](guides/07_Kaggle高分方案与选择依据.md)
+8. [08_Kaggle免费GPU运行](guides/08_Kaggle免费GPU运行.md)
+9. [09_C2问题诊断与后处理](guides/09_C2问题诊断与后处理.md)
 10. [实验记录表](guides/实验记录表.md)
 
 当前已完成 B0 正式基线：U-Net + ResNet34，验证集最佳 Dice 为 `0.906335`；Kaggle 代码提交的 Public / Private Dice 分别为 `0.86086` / `0.85772`。
