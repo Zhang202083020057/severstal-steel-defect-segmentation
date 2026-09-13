@@ -1,13 +1,13 @@
 {
-  "id": "zhanshuguo/severstal-c2-balanced-sampling-train",
-  "title": "Severstal C2 Balanced Sampling Train",
-  "code_file": "balanced_train.py",
+  "id": "zhanshuguo/severstal-c2-balanced-code-submit",
+  "title": "Severstal C2 Balanced Code Submit",
+  "code_file": "balanced_submit.py",
   "language": "python",
   "kernel_type": "script",
   "is_private": "true",
   "enable_gpu": "true",
   "enable_tpu": "false",
-  "enable_internet": "true",
+  "enable_internet": "false",
   "machine_shape": "NvidiaTeslaT4",
   "dataset_sources": [
     "zhanshuguo/severstal-balanced-training-source",
@@ -16,6 +16,8 @@
   "competition_sources": [
     "severstal-steel-defect-detection"
   ],
-  "kernel_sources": [],
+  "kernel_sources": [
+    "zhanshuguo/severstal-c2-balanced-sampling-train"
+  ],
   "model_sources": []
 }
