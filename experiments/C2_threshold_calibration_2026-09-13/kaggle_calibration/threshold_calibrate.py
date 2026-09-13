@@ -1,36 +1,43 @@
-"""Diagnose and calibrate per-class thresholds on the fixed validation split."""
+"""Run V2 probability diagnostics and threshold calibration on Kaggle."""
 
 from __future__ import annotations
 
-import argparse
+import json
+import subprocess
+import sys
 from pathlib import Path
 
-import numpy as np
-import torch
-from torch.utils.data import DataLoader
-from tqdm import tqdm
 
-from steel_common import (
-    NUM_CLASSES,
-    SteelDataset,
-    build_model,
-    build_transforms,
-    load_annotation_table,
-    save_json,
-    split_ids,
-)
+THRESHOLDS = [0.01, 0.02, 0.03, 0.05, 0.075, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
+MINIMUM_AREAS = [0, 5, 10, 25, 50, 100, 200, 400]
 
 
-def parse_number_grid(value: str, cast) -> list:
-    result = [cast(item.strip()) for item in value.split(",") if item.strip()]
-    if not result:
-        raise ValueError("Grid must contain at least one value")
-    return result
+def install_dependencies() -> None:
+    wheel_matches = list(
+        Path("/kaggle/input").rglob("segmentation_models_pytorch-0.5.0-py3-none-any.whl")
+    )
+    if len(wheel_matches) != 1:
+        raise RuntimeError(f"Expected one offline wheel directory, found: {wheel_matches}")
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--quiet",
+            "--no-index",
+            "--find-links",
+            str(wheel_matches[0].parent),
+            "Pillow==11.3.0",
+            "timm==1.0.29",
+            "segmentation-models-pytorch==0.5.0",
+        ]
+    )
 
 
-def percentile_summary(values: np.ndarray) -> dict:
+def percentile_summary(np, values):
     if values.size == 0:
-        return {"count": 0, "min": None, "p25": None, "median": None, "p75": None, "p90": None, "max": None}
+        return {"count": 0}
     quantiles = np.quantile(values, [0.0, 0.25, 0.5, 0.75, 0.9, 1.0])
     return {
         "count": int(values.size),
@@ -43,78 +50,95 @@ def percentile_summary(values: np.ndarray) -> dict:
     }
 
 
-def select_per_class(scores: np.ndarray, thresholds: list[float], minimum_areas: list[int]) -> list[dict]:
+def select_per_class(np, scores):
     selected = []
-    for class_index in range(NUM_CLASSES):
+    for class_index in range(4):
         flat_index = int(np.nanargmax(scores[:, :, class_index]))
-        threshold_index, area_index = np.unravel_index(flat_index, scores[:, :, class_index].shape)
+        threshold_index, area_index = np.unravel_index(
+            flat_index, scores[:, :, class_index].shape
+        )
         selected.append(
             {
                 "class_id": class_index + 1,
-                "threshold": thresholds[threshold_index],
-                "minimum_total_pixels_model_space": minimum_areas[area_index],
+                "threshold": THRESHOLDS[threshold_index],
+                "minimum_total_pixels_model_space": MINIMUM_AREAS[area_index],
                 "score": float(scores[threshold_index, area_index, class_index]),
             }
         )
     return selected
 
 
-@torch.no_grad()
 def main() -> None:
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--data-dir", type=Path, required=True)
-    parser.add_argument("--checkpoint", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument(
-        "--grid",
-        default="0.01,0.02,0.03,0.05,0.075,0.1,0.15,0.2,0.25,0.3,0.35,0.4,0.45,0.5",
+    install_dependencies()
+
+    import numpy as np
+    import torch
+    from torch.utils.data import DataLoader
+    from tqdm import tqdm
+
+    torch.set_grad_enabled(False)
+
+    source_dirs = [
+        path.parent
+        for path in Path("/kaggle/input").rglob("steel_common.py")
+        if "severstal-c2-training-source" in str(path)
+        and (path.parent / "train.py").is_file()
+    ]
+    if len(source_dirs) != 1:
+        raise RuntimeError(f"Expected one V2 source directory, found: {source_dirs}")
+    sys.path.insert(0, str(source_dirs[0]))
+
+    from steel_common import (
+        SteelDataset,
+        build_model,
+        build_transforms,
+        load_annotation_table,
+        split_ids,
     )
-    parser.add_argument("--minimum-area-grid", default="0,5,10,25,50,100,200,400")
-    parser.add_argument("--batch-size", type=int, default=4)
-    parser.add_argument("--num-workers", type=int, default=4)
-    parser.add_argument("--val-size", type=float, default=0.2)
-    parser.add_argument("--seed", type=int, default=42)
-    args = parser.parse_args()
 
-    if not torch.cuda.is_available():
-        raise RuntimeError("CUDA GPU not found")
-
-    thresholds = parse_number_grid(args.grid, float)
-    minimum_areas = parse_number_grid(args.minimum_area_grid, int)
-    if thresholds != sorted(thresholds) or minimum_areas != sorted(minimum_areas):
-        raise ValueError("Threshold and minimum-area grids must be sorted")
+    checkpoints = list(Path("/kaggle/input").rglob("best_model.pt"))
+    if len(checkpoints) != 1:
+        raise RuntimeError(f"Expected one V2 checkpoint, found: {checkpoints}")
+    train_dirs = [
+        path
+        for path in Path("/kaggle/input/competitions").rglob("train_images")
+        if path.is_dir()
+    ]
+    if len(train_dirs) != 1:
+        raise RuntimeError(f"Expected one competition train directory, found: {train_dirs}")
 
     device = torch.device("cuda")
-    checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=False)
+    checkpoint = torch.load(checkpoints[0], map_location=device, weights_only=False)
     model = build_model(checkpoint["architecture"], checkpoint["encoder"], None).to(device)
     model.load_state_dict(checkpoint["model_state"])
     model.eval()
 
-    table = load_annotation_table(args.data_dir)
-    _, val_ids = split_ids(table, args.val_size, args.seed)
+    data_dir = train_dirs[0].parent
+    table = load_annotation_table(data_dir)
+    _, val_ids = split_ids(table, 0.2, 42)
     transform = build_transforms(
         checkpoint["height"], checkpoint["width"], training=False, strong=False
     )
-    dataset = SteelDataset(args.data_dir / "train_images", val_ids, transform, table)
+    dataset = SteelDataset(data_dir / "train_images", val_ids, transform, table)
     loader = DataLoader(
         dataset,
-        batch_size=args.batch_size,
+        batch_size=4,
         shuffle=False,
-        num_workers=args.num_workers,
+        num_workers=2,
         pin_memory=True,
-        persistent_workers=args.num_workers > 0,
+        persistent_workers=True,
     )
 
-    shape = (len(thresholds), len(minimum_areas), NUM_CLASSES)
+    shape = (len(THRESHOLDS), len(MINIMUM_AREAS), 4)
     dice_sum = torch.zeros(shape, dtype=torch.float64, device=device)
     positive_dice_sum = torch.zeros_like(dice_sum)
     detection_true_positive = torch.zeros_like(dice_sum)
     predicted_nonempty_count = torch.zeros_like(dice_sum)
-    total_images = torch.zeros(NUM_CLASSES, dtype=torch.float64, device=device)
-    positive_images = torch.zeros(NUM_CLASSES, dtype=torch.float64, device=device)
-    image_maxima: list[torch.Tensor] = []
-    truth_region_maxima: list[torch.Tensor] = []
-    truth_nonempty_rows: list[torch.Tensor] = []
+    total_images = torch.zeros(4, dtype=torch.float64, device=device)
+    positive_images = torch.zeros(4, dtype=torch.float64, device=device)
+    image_maxima = []
+    truth_region_maxima = []
+    truth_nonempty_rows = []
 
     for images, masks in tqdm(loader, desc="threshold calibration"):
         images = images.to(device, non_blocking=True)
@@ -132,11 +156,11 @@ def main() -> None:
         )
         truth_nonempty_rows.append(truth_nonempty.cpu())
 
-        for threshold_index, threshold in enumerate(thresholds):
+        for threshold_index, threshold in enumerate(THRESHOLDS):
             prediction = probabilities > threshold
             predicted_area = prediction.sum(dim=(2, 3)).float()
             raw_intersection = (prediction & truth).sum(dim=(2, 3)).float()
-            for area_index, minimum_area in enumerate(minimum_areas):
+            for area_index, minimum_area in enumerate(MINIMUM_AREAS):
                 keep = predicted_area >= minimum_area
                 predicted_nonempty = keep & (predicted_area > 0)
                 kept_area = predicted_area * keep
@@ -163,9 +187,7 @@ def main() -> None:
     detection_recall = detection_true_positive / positive_images.clamp_min(1.0)
     detection_precision = detection_true_positive / predicted_nonempty_count.clamp_min(1.0)
     detection_f1 = (
-        2.0
-        * detection_precision
-        * detection_recall
+        2.0 * detection_precision * detection_recall
         / (detection_precision + detection_recall).clamp_min(1e-12)
     )
     predicted_nonempty_rate = predicted_nonempty_count / total_images.clamp_min(1.0)
@@ -176,31 +198,34 @@ def main() -> None:
     maxima = torch.cat(image_maxima).numpy()
     truth_maxima = torch.cat(truth_region_maxima).numpy()
     nonempty = torch.cat(truth_nonempty_rows).numpy().astype(bool)
-
     probability_summary = []
-    for class_index in range(NUM_CLASSES):
+    for class_index in range(4):
         class_positive = nonempty[:, class_index]
         probability_summary.append(
             {
                 "class_id": class_index + 1,
-                "positive_image_global_max": percentile_summary(maxima[class_positive, class_index]),
-                "positive_image_truth_region_max": percentile_summary(
-                    truth_maxima[class_positive, class_index]
+                "positive_image_global_max": percentile_summary(
+                    np, maxima[class_positive, class_index]
                 ),
-                "negative_image_global_max": percentile_summary(maxima[~class_positive, class_index]),
+                "positive_image_truth_region_max": percentile_summary(
+                    np, truth_maxima[class_positive, class_index]
+                ),
+                "negative_image_global_max": percentile_summary(
+                    np, maxima[~class_positive, class_index]
+                ),
             }
         )
 
     result = {
-        "checkpoint": str(args.checkpoint),
+        "checkpoint": str(checkpoints[0]),
         "validation_images": len(val_ids),
         "positive_images_per_class": [int(value) for value in positive_images.cpu().tolist()],
         "model_resolution": [int(checkpoint["height"]), int(checkpoint["width"])],
-        "threshold_grid": thresholds,
-        "minimum_area_grid_model_space": minimum_areas,
-        "best_overall_dice": select_per_class(overall_np, thresholds, minimum_areas),
-        "best_positive_dice": select_per_class(positive_np, thresholds, minimum_areas),
-        "best_detection_f1": select_per_class(detection_f1_np, thresholds, minimum_areas),
+        "threshold_grid": THRESHOLDS,
+        "minimum_area_grid_model_space": MINIMUM_AREAS,
+        "best_overall_dice": select_per_class(np, overall_np),
+        "best_positive_dice": select_per_class(np, positive_np),
+        "best_detection_f1": select_per_class(np, detection_f1_np),
         "probability_summary": probability_summary,
         "overall_dice": overall_np.tolist(),
         "positive_dice": positive_np.tolist(),
@@ -208,14 +233,16 @@ def main() -> None:
         "detection_precision": detection_precision.cpu().numpy().tolist(),
         "detection_f1": detection_f1_np.tolist(),
         "predicted_nonempty_rate": predicted_nonempty_rate.cpu().numpy().tolist(),
-        "note": "Minimum areas are measured at model resolution; test inference upsamples width from 800 to 1600.",
+        "note": "Minimum areas are at 256x800 model resolution; test inference upsamples width to 1600.",
     }
-    save_json(args.output, result)
+    output = Path("/kaggle/working/threshold_results.json")
+    output.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print("best_overall_dice=", result["best_overall_dice"])
     print("best_positive_dice=", result["best_positive_dice"])
     print("best_detection_f1=", result["best_detection_f1"])
     print("probability_summary=", probability_summary)
-    print(f"wrote {args.output}")
+    print(f"wrote {output}")
+    print("THRESHOLD_CALIBRATION_COMPLETE")
 
 
 if __name__ == "__main__":

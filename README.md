@@ -2,9 +2,9 @@
 
 这是面向初学者的可复现实验工程。完整学习顺序：
 
-当前项目版本：**V2 / `v0.2.0`（C2 定向在线增强）**。版本改动、结果对照和复现入口见 [版本与实验进度](VERSION_HISTORY.md)。
+当前实验进度与最佳方案：**V4（V2 权重 + 分类别阈值与面积校准）**。版本改动、结果对照和复现入口见 [版本与实验进度](VERSION_HISTORY.md)。
 
-当前代码位于实验分支 `experiment/c2-targeted-augmentation`；队友可先阅读 [分支查看指南](BRANCH_GUIDE.md)，再通过 GitHub Compare 与 `main` 中的 B0 基线逐文件对照。
+当前代码位于实验分支 `experiment/c2-threshold-calibration`，直接对照分支为 `experiment/c2-targeted-augmentation`（V2）。
 
 1. [00_路线与模型选择](guides/00_路线与模型选择.md)
 2. [01_AutoDL环境与数据上传](guides/01_AutoDL环境与数据上传.md)
@@ -21,10 +21,14 @@
 
 已完成 C2 定向增强对照：只对含 Class 2 的训练图增加轻微亮度/对比度、Gamma、高斯噪声和 ±2° 旋转，其余设置与 B0 相同且不使用过采样。Validation Dice 为 `0.912265`，Kaggle Public / Private Dice 为 `0.87369` / `0.86944`。整体分数上升，但阈值 0.5 下 C2 仍为全空预测，不能解释为 C2 检测问题已经解决。详见 [C2 定向增强实验记录](experiments/C2_augmentation_2026-09-12/README.md)。
 
+已完成 V2 模型的概率诊断与分类别后处理校准。结果确认 C2 输出通道已经塌缩，阈值降至 0.01 仍无法检出；但通过 C3/C4 阈值和最小面积校准，Validation Dice 提高到 `0.917863`，Kaggle Public / Private Dice 提高到 `0.88093` / `0.87886`。V4 是当前整体最佳版本，但提升来自 C3/C4，不能解释成 C2 检测能力提升。详见 [C2 概率诊断与阈值校准](experiments/C2_threshold_calibration_2026-09-13/README.md)。
+
 | 版本 | 方案 | Validation Dice | Kaggle Public | Kaggle Private |
 |---|---|---:|---:|---:|
 | V1 | B0：基础增强 | 0.906335 | 0.86086 | 0.85772 |
-| V2 | B0 + C2 定向在线增强，无过采样 | **0.912265** | **0.87369** | **0.86944** |
+| V2 | B0 + C2 定向在线增强，无过采样 | 0.912265 | 0.87369 | 0.86944 |
+| V3 | V2 + 平方根反频率平衡采样 | 0.910129 | 0.86040 | 0.86793 |
+| V4 | V2 权重 + 分类别阈值与面积校准 | **0.917863** | **0.88093** | **0.87886** |
 
 Kaggle 上复现 V1 或 V2 可分别运行：
 

@@ -40,12 +40,36 @@ bash scripts/run_b0_kaggle.sh
 bash scripts/run_c2_kaggle.sh
 ```
 
-## V1 与 V2 对比
+## V3｜C2 定向增强 + 平方根反频率平衡采样
 
-| 指标 | V1：B0 | V2：C2-AUG | 差值 |
-|---|---:|---:|---:|
-| Validation Dice | 0.906335 | **0.912265** | +0.005930 |
-| Kaggle Public Dice | 0.86086 | **0.87369** | +0.01283 |
-| Kaggle Private Dice | 0.85772 | **0.86944** | +0.01172 |
+- 分支：`experiment/c2-balanced-sampling`。
+- 以 V2 为对照，只增加有放回平衡采样；C2 每个 epoch 的期望抽取次数由 198 增加到约 715。
+- Validation Dice：0.910129。
+- Kaggle Public / Private Dice：0.86040 / 0.86793。
+- C2 正样本 Dice 和检出召回率仍为 0，因此没有解决 C2 检出问题，也没有超过 V2。
+- Submission Ref：56199102。
+- 详细记录位于对应实验分支的 `experiments/C2_balanced_sampling_2026-09-13/README.md`。
 
-V2 是当前整体榜单成绩更好的版本，但不能声称已经解决 C2 检测问题。统一阈值 0.5 下，V2 的测试集 C2 非空预测仍为 0；Validation Dice 的提升主要来自 Class 3 和 Class 4。下一版本应补充 C2 正样本 Dice/召回率与独立阈值搜索，再单独验证过采样或 Focal-Dice。
+## V4｜V2 权重 + 分类别阈值与面积校准
+
+- 分支：`experiment/c2-threshold-calibration`。
+- 不重新训练，直接复用 V2 权重。
+- 概率诊断确认 C2 通道塌缩：C2 正样本的全图最大概率中位数仅约 4.77e-7，阈值降至 0.01 仍无检出。
+- 最终阈值：`0.5,0.5,0.5,0.075`。
+- 原图空间最小总面积：`0,0,800,800`。
+- 校准后 Validation Dice：0.917863。
+- Kaggle Public / Private Dice：0.88093 / 0.87886。
+- 相对 V2：Public +0.00724，Private +0.00942。
+- Submission Ref：56203996。
+- 结论：V4 是当前整体最佳版本，但提升来自 C3/C4 后处理，不是 C2。
+- 详细记录：[C2 概率诊断与阈值校准](experiments/C2_threshold_calibration_2026-09-13/README.md)。
+
+## V1～V4 对比
+
+| 指标 | V1：B0 | V2：C2-AUG | V3：平衡采样 | V4：校准后处理 |
+|---|---:|---:|---:|---:|
+| Validation Dice | 0.906335 | 0.912265 | 0.910129 | **0.917863** |
+| Kaggle Public Dice | 0.86086 | 0.87369 | 0.86040 | **0.88093** |
+| Kaggle Private Dice | 0.85772 | 0.86944 | 0.86793 | **0.87886** |
+
+V4 是当前整体榜单成绩最好的版本，但 C1/C2 仍为全空预测。概率诊断已排除“只需降低 C2 阈值”的假设；下一版应修改训练优化目标，优先单变量比较 Focal-Dice，并保留 V4 后处理用于最终推理。
