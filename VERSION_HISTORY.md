@@ -74,6 +74,16 @@ bash scripts/run_c2_kaggle.sh
 - 结论：当前缩放不是 C2 通道塌缩的主要原因；下一步优先测试 Focal-Dice。
 - 详细记录：[C2 标签与缩放审计](experiments/C2_resolution_audit_2026-09-13/README.md)。
 
+## V5b｜C2 定向增强 + Focal-Dice
+
+- 分支：`experiment/c2-focal-dice`。
+- 以 V2 为对照，只把 `BCE+Dice` 改为 `Focal+Dice`，其余训练配置不变。
+- Validation Dice：0.905792。
+- C2 真实区域最大概率中位数仍为 0，C2 正样本 Dice 和检出 F1 仍为 0。
+- Submission Ref：56207881（当前等待排行榜评分）。
+- 结论：Focal-Dice 单独没有激活 C2 输出通道；待排行榜结果返回后补充 Public/Private 分数。
+- 详细记录：[C2 Focal-Dice 实验](experiments/C2_focal_dice_2026-09-13/README.md)。
+
 ## V1～V4 排行榜对比
 
 | 指标 | V1：B0 | V2：C2-AUG | V3：平衡采样 | V4：校准后处理 |

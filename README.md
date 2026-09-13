@@ -24,6 +24,8 @@
 
 已完成 V2 模型的概率诊断与分类别后处理校准。结果确认 C2 输出通道已经塌缩，阈值降至 0.01 仍无法检出；但通过 C3/C4 阈值和最小面积校准，Validation Dice 提高到 `0.917863`，Kaggle Public / Private Dice 提高到 `0.88093` / `0.87886`。V4 是当前整体最佳版本，但提升来自 C3/C4，不能解释成 C2 检测能力提升。详见 [C2 概率诊断与阈值校准](experiments/C2_threshold_calibration_2026-09-13/README.md)。
 
+V5b 已完成 Focal-Dice 对照训练。Validation Dice 为 `0.905792`，C2 真实区域概率中位数仍为 0，说明仅改变 Loss 仍没有激活 C2 输出通道；Submission Ref `56207881` 已提交并等待评分。详见 [C2 Focal-Dice 实验](experiments/C2_focal_dice_2026-09-13/README.md)。
+
 | 版本 | 方案 | Validation Dice | Kaggle Public | Kaggle Private |
 |---|---|---:|---:|---:|
 | V1 | B0：基础增强 | 0.906335 | 0.86086 | 0.85772 |
