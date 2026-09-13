@@ -266,6 +266,39 @@ def dice_sums(
     )
 
 
+def positive_dice_sums(
+    logits: torch.Tensor, targets: torch.Tensor, thresholds: Iterable[float]
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return Dice sums/counts only for image-class pairs with non-empty targets."""
+    threshold_tensor = torch.as_tensor(
+        list(thresholds), device=logits.device, dtype=logits.dtype
+    ).view(1, NUM_CLASSES, 1, 1)
+    prediction = torch.sigmoid(logits) > threshold_tensor
+    truth = targets > 0.5
+    intersection = (prediction & truth).sum(dim=(2, 3)).float()
+    denominator = prediction.sum(dim=(2, 3)).float() + truth.sum(dim=(2, 3)).float()
+    dice = 2.0 * intersection / denominator.clamp_min(1.0)
+    positive = truth.any(dim=3).any(dim=2)
+    return (dice * positive).sum(dim=0), positive.sum(dim=0).float()
+
+
+def nonempty_detection_sums(
+    logits: torch.Tensor, targets: torch.Tensor, thresholds: Iterable[float]
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Return true-positive, predicted-positive and target-positive image counts."""
+    threshold_tensor = torch.as_tensor(
+        list(thresholds), device=logits.device, dtype=logits.dtype
+    ).view(1, NUM_CLASSES, 1, 1)
+    predicted_positive = (torch.sigmoid(logits) > threshold_tensor).any(dim=3).any(dim=2)
+    target_positive = (targets > 0.5).any(dim=3).any(dim=2)
+    true_positive = predicted_positive & target_positive
+    return (
+        true_positive.sum(dim=0).float(),
+        predicted_positive.sum(dim=0).float(),
+        target_positive.sum(dim=0).float(),
+    )
+
+
 def remove_small_components(mask: np.ndarray, minimum_size: int) -> np.ndarray:
     if minimum_size <= 0 or not mask.any():
         return mask.astype(np.uint8)

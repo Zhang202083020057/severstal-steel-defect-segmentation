@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# V2: compare C2-only online augmentation against the V1/B0 baseline on Kaggle.
-# All B0 settings and the seed are unchanged; only --c2-augmentation is added.
-# Usage: bash scripts/run_c2_kaggle.sh [DATA_DIR] [OUTPUT_DIR]
+# V3: V2 C2-targeted augmentation plus capped sqrt inverse-frequency sampling.
+# All other model, split, loss, training and inference settings remain unchanged.
+# Usage: bash scripts/run_c2_balanced_kaggle.sh [DATA_DIR] [OUTPUT_DIR]
 
 set -euo pipefail
 
 DATA_DIR="${1:-/kaggle/input/competitions/severstal-steel-defect-detection}"
-OUTPUT_DIR="${2:-/kaggle/working/outputs/C2_unet_resnet34}"
+OUTPUT_DIR="${2:-/kaggle/working/outputs/C2_balanced_unet_resnet34}"
 
 python train.py \
   --data-dir "$DATA_DIR" \
@@ -17,7 +17,7 @@ python train.py \
   --loss bce_dice \
   --augmentation basic \
   --c2-augmentation \
-  --sampling shuffle \
+  --sampling sqrt_inverse_frequency \
   --height 256 \
   --width 800 \
   --epochs 10 \

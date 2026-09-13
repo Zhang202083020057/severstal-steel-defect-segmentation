@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, WeightedRandomSampler
 from tqdm import tqdm
 
 from steel_common import (
@@ -22,6 +22,8 @@ from steel_common import (
     dice_sums,
     load_annotation_table,
     make_targets,
+    nonempty_detection_sums,
+    positive_dice_sums,
     seed_everything,
     split_ids,
 )
@@ -39,6 +41,35 @@ def class_counts(table: pd.DataFrame, ids: list[str]) -> list[int]:
     return make_targets(table.loc[ids]).sum(axis=0).astype(int).tolist()
 
 
+def build_balanced_sampler(table: pd.DataFrame, ids: list[str], seed: int):
+    """Build a capped square-root inverse-frequency image sampler."""
+    targets = make_targets(table.loc[ids]).astype(np.float64)
+    counts = targets.sum(axis=0)
+    reference = max(float(counts.max()), 1.0)
+    class_weights = np.sqrt(reference / np.maximum(counts, 1.0))
+    class_weights = np.clip(class_weights, 1.0, 5.0)
+    sample_weights = np.maximum(1.0, (targets * class_weights).max(axis=1))
+    sampler = WeightedRandomSampler(
+        torch.as_tensor(sample_weights, dtype=torch.double),
+        num_samples=len(ids),
+        replacement=True,
+        generator=torch.Generator().manual_seed(seed),
+    )
+    expected_counts = [
+        float(len(ids) * sample_weights[targets[:, index] > 0].sum() / sample_weights.sum())
+        for index in range(NUM_CLASSES)
+    ]
+    info = {
+        "strategy": "sqrt_inverse_frequency",
+        "class_positive_counts": counts.astype(int).tolist(),
+        "class_sampling_weights": class_weights.tolist(),
+        "expected_positive_draws_per_epoch": expected_counts,
+        "epoch_draws": len(ids),
+        "replacement": True,
+    }
+    return sampler, info
+
+
 def run_epoch(model, loader, criterion, device, optimizer, scaler, thresholds):
     training = optimizer is not None
     model.train(training)
@@ -46,6 +77,11 @@ def run_epoch(model, loader, criterion, device, optimizer, scaler, thresholds):
     item_count = 0
     dice_sum = torch.zeros(NUM_CLASSES, device=device)
     dice_count = torch.zeros(NUM_CLASSES, device=device)
+    positive_dice_sum = torch.zeros(NUM_CLASSES, device=device)
+    positive_dice_count = torch.zeros(NUM_CLASSES, device=device)
+    detection_true_positive = torch.zeros(NUM_CLASSES, device=device)
+    predicted_nonempty = torch.zeros(NUM_CLASSES, device=device)
+    target_nonempty = torch.zeros(NUM_CLASSES, device=device)
     progress = tqdm(loader, desc="train" if training else "valid", leave=False)
 
     for images, masks in progress:
@@ -71,10 +107,35 @@ def run_epoch(model, loader, criterion, device, optimizer, scaler, thresholds):
         batch_sum, batch_count = dice_sums(logits.detach(), masks, thresholds)
         dice_sum += batch_sum
         dice_count += batch_count
+        batch_positive_sum, batch_positive_count = positive_dice_sums(
+            logits.detach(), masks, thresholds
+        )
+        positive_dice_sum += batch_positive_sum
+        positive_dice_count += batch_positive_count
+        batch_true_positive, batch_predicted_nonempty, batch_target_nonempty = (
+            nonempty_detection_sums(logits.detach(), masks, thresholds)
+        )
+        detection_true_positive += batch_true_positive
+        predicted_nonempty += batch_predicted_nonempty
+        target_nonempty += batch_target_nonempty
         progress.set_postfix(loss=f"{loss.item():.4f}")
 
-    class_dice = (dice_sum / dice_count.clamp_min(1)).cpu().numpy()
-    return loss_sum / max(item_count, 1), class_dice
+    metrics = {
+        "dice": (dice_sum / dice_count.clamp_min(1)).cpu().numpy(),
+        "positive_dice": (
+            positive_dice_sum / positive_dice_count.clamp_min(1)
+        ).cpu().numpy(),
+        "detection_recall": (
+            detection_true_positive / target_nonempty.clamp_min(1)
+        ).cpu().numpy(),
+        "detection_precision": (
+            detection_true_positive / predicted_nonempty.clamp_min(1)
+        ).cpu().numpy(),
+        "predicted_nonempty_rate": (
+            predicted_nonempty / max(item_count, 1)
+        ).cpu().numpy(),
+    }
+    return loss_sum / max(item_count, 1), metrics
 
 
 def parse_args() -> argparse.Namespace:
@@ -88,6 +149,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--encoder-weights", choices=["imagenet", "none"], default="imagenet")
     parser.add_argument("--loss", choices=["bce_dice", "focal_dice"], default="bce_dice")
     parser.add_argument("--augmentation", choices=["basic", "strong"], default="basic")
+    parser.add_argument(
+        "--sampling",
+        choices=["shuffle", "sqrt_inverse_frequency"],
+        default="shuffle",
+        help="Use image-level sampling; balanced sampling keeps the epoch length fixed",
+    )
     parser.add_argument(
         "--c2-augmentation",
         action="store_true",
@@ -159,7 +226,16 @@ def main() -> None:
         pin_memory=True,
         persistent_workers=args.num_workers > 0,
     )
-    train_loader = DataLoader(train_dataset, shuffle=True, **loader_options)
+    sampler = None
+    sampling_info = {"strategy": "shuffle", "epoch_draws": len(train_ids)}
+    if args.sampling == "sqrt_inverse_frequency":
+        sampler, sampling_info = build_balanced_sampler(table, train_ids, args.seed)
+    train_loader = DataLoader(
+        train_dataset,
+        shuffle=sampler is None,
+        sampler=sampler,
+        **loader_options,
+    )
     valid_loader = DataLoader(valid_dataset, shuffle=False, **loader_options)
 
     weights = None if args.encoder_weights == "none" else args.encoder_weights
@@ -176,6 +252,7 @@ def main() -> None:
     config = vars(args).copy()
     config["data_dir"] = str(args.data_dir)
     config["output_dir"] = str(args.output_dir)
+    config["sampling_info"] = sampling_info
     (args.output_dir / "config.json").write_text(
         json.dumps(config, ensure_ascii=False, indent=2), encoding="utf-8"
     )
@@ -184,20 +261,24 @@ def main() -> None:
     print(f"positive masks train={class_counts(table, train_ids)} val={class_counts(table, val_ids)}")
     print(
         f"model={args.architecture}/{args.encoder}, loss={args.loss}, "
-        f"aug={args.augmentation}, c2_augmentation={args.c2_augmentation}"
+        f"aug={args.augmentation}, c2_augmentation={args.c2_augmentation}, "
+        f"sampling={args.sampling}"
     )
+    print(f"sampling_info={json.dumps(sampling_info, ensure_ascii=False)}")
 
     best_score = -1.0
     history: list[dict] = []
     for epoch in range(1, args.epochs + 1):
-        train_loss, train_dice = run_epoch(
+        train_loss, train_metrics = run_epoch(
             model, train_loader, criterion, torch.device("cuda"), optimizer, scaler, thresholds
         )
         with torch.no_grad():
-            val_loss, val_dice = run_epoch(
+            val_loss, val_metrics = run_epoch(
                 model, valid_loader, criterion, torch.device("cuda"), None, scaler, thresholds
             )
         scheduler.step()
+        train_dice = train_metrics["dice"]
+        val_dice = val_metrics["dice"]
         score = float(val_dice.mean())
         row = {
             "epoch": epoch,
@@ -207,6 +288,22 @@ def main() -> None:
             "train_dice": float(train_dice.mean()),
             "val_dice": score,
             **{f"val_dice_class_{index + 1}": float(value) for index, value in enumerate(val_dice)},
+            **{
+                f"val_positive_dice_class_{index + 1}": float(value)
+                for index, value in enumerate(val_metrics["positive_dice"])
+            },
+            **{
+                f"val_detection_recall_class_{index + 1}": float(value)
+                for index, value in enumerate(val_metrics["detection_recall"])
+            },
+            **{
+                f"val_detection_precision_class_{index + 1}": float(value)
+                for index, value in enumerate(val_metrics["detection_precision"])
+            },
+            **{
+                f"val_predicted_nonempty_rate_class_{index + 1}": float(value)
+                for index, value in enumerate(val_metrics["predicted_nonempty_rate"])
+            },
         }
         history.append(row)
         print(json.dumps(row, ensure_ascii=False))
