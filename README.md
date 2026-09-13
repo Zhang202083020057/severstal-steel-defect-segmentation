@@ -2,9 +2,9 @@
 
 这是面向初学者的可复现实验工程。完整学习顺序：
 
-当前项目版本：**V2 / `v0.2.0`（C2 定向在线增强）**。版本改动、结果对照和复现入口见 [版本与实验进度](VERSION_HISTORY.md)。
+当前实验进度：**V3（C2 定向在线增强 + 平衡采样）**；当前最佳方案仍为 **V2 / `v0.2.0`**。版本改动、结果对照和复现入口见 [版本与实验进度](VERSION_HISTORY.md)。
 
-当前代码位于实验分支 `experiment/c2-targeted-augmentation`；队友可先阅读 [分支查看指南](BRANCH_GUIDE.md)，再通过 GitHub Compare 与 `main` 中的 B0 基线逐文件对照。
+当前代码位于实验分支 `experiment/c2-balanced-sampling`；队友可先阅读 [分支查看指南](BRANCH_GUIDE.md)，再通过 GitHub Compare 与 `experiment/c2-targeted-augmentation` 中的 V2 逐文件对照。
 
 1. [00_路线与模型选择](guides/00_路线与模型选择.md)
 2. [01_AutoDL环境与数据上传](guides/01_AutoDL环境与数据上传.md)
@@ -21,16 +21,20 @@
 
 已完成 C2 定向增强对照：只对含 Class 2 的训练图增加轻微亮度/对比度、Gamma、高斯噪声和 ±2° 旋转，其余设置与 B0 相同且不使用过采样。Validation Dice 为 `0.912265`，Kaggle Public / Private Dice 为 `0.87369` / `0.86944`。整体分数上升，但阈值 0.5 下 C2 仍为全空预测，不能解释为 C2 检测问题已经解决。详见 [C2 定向增强实验记录](experiments/C2_augmentation_2026-09-12/README.md)。
 
+已完成 C2 平衡采样对照：在 V2 基础上仅加入平方根反频率有放回采样，将 C2 每个 epoch 的期望出现次数从 198 提高到约 715。Validation Dice 为 `0.910129`，Kaggle Public / Private Dice 为 `0.86040` / `0.86793`，均未超过 V2；C2 的正样本 Dice 和检出召回率仍为 0。该结果作为负向消融实验保留，说明简单增加少数类采样频率不足以解决问题。详见 [C2 平衡采样实验记录](experiments/C2_balanced_sampling_2026-09-13/README.md)。
+
 | 版本 | 方案 | Validation Dice | Kaggle Public | Kaggle Private |
 |---|---|---:|---:|---:|
 | V1 | B0：基础增强 | 0.906335 | 0.86086 | 0.85772 |
 | V2 | B0 + C2 定向在线增强，无过采样 | **0.912265** | **0.87369** | **0.86944** |
+| V3 | V2 + 平方根反频率平衡采样 | 0.910129 | 0.86040 | 0.86793 |
 
-Kaggle 上复现 V1 或 V2 可分别运行：
+Kaggle 上复现 V1、V2 或 V3 可分别运行：
 
 ```bash
 bash scripts/run_b0_kaggle.sh
 bash scripts/run_c2_kaggle.sh
+bash scripts/run_c2_balanced_kaggle.sh
 ```
 
 ## 目录

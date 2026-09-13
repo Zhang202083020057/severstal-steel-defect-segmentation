@@ -40,5 +40,29 @@ bash scripts/run_c2_balanced_kaggle.sh
 
 ## 状态
 
-- 当前状态：代码检查完成，等待/正在进行 Kaggle 全量训练。
-- 结果将在训练与 Code Submission 完成后补充。
+- 当前状态：Kaggle 全量训练、测试推理、Code Submission 和排行榜评分均已完成。
+- 最佳 epoch：8。
+- Validation Dice：`0.910129`，比 V2 的 `0.912265` 下降 `0.002136`。
+- Kaggle Public / Private Dice：`0.86040 / 0.86793`。
+- 相对 V2：Public `-0.01329`，Private `-0.00151`。
+- 相对 B0：Public `-0.00046`，Private `+0.01021`。
+- Kaggle Submission Ref：`56199102`。
+- 训练 Notebook：`zhanshuguo/severstal-c2-balanced-sampling-train` Version 1。
+- 离线提交 Notebook：`zhanshuguo/severstal-c2-balanced-code-submit` Version 1。
+
+### 最佳 epoch 的诊断结果
+
+| 类别 | 常规 Validation Dice | 正样本 Dice | 检出召回率 | 检出精确率 | 预测非空率 |
+|---|---:|---:|---:|---:|---:|
+| C1 | 0.928799 | 0.000000 | 0.000000 | 0.000000 | 0.000000 |
+| C2 | 0.980509 | 0.000000 | 0.000000 | 0.000000 | 0.000000 |
+| C3 | 0.779217 | 0.586360 | 0.907767 | 0.878759 | 0.423230 |
+| C4 | 0.951991 | 0.351905 | 0.693750 | 0.867188 | 0.050915 |
+
+测试集共生成 `22,024` 行（5,506 张图片 × 4 类）。阈值 0.5 下，各类非空预测数为 C1=`0`、C2=`0`、C3=`2,034`、C4=`239`。
+
+### 阶段结论
+
+平衡采样把 C2 每个 epoch 的期望抽取次数从 198 增加到约 715，但 C2 的正样本 Dice 和检出召回率仍为 0，整体 Validation Dice 与 Kaggle Public/Private 分数也都低于 V2。因此当前证据表明：在保持 BCE+Dice、统一 0.5 阈值及其他训练参数不变时，这种保守的平方根反频率过采样没有解决 C2 检出问题，也没有带来稳定的整体收益。
+
+下一步不应继续盲目提高 C2 重复采样倍数，应优先在验证集保存概率并做分类别阈值搜索，同时检查 C2 输出概率分布；如果 C2 概率整体偏低，再对比 Focal-Dice 或类别加权 BCE。

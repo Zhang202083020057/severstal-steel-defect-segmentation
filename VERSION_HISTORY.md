@@ -40,12 +40,31 @@ bash scripts/run_b0_kaggle.sh
 bash scripts/run_c2_kaggle.sh
 ```
 
-## V1 与 V2 对比
+## V3｜C2 定向增强 + 平方根反频率平衡采样
 
-| 指标 | V1：B0 | V2：C2-AUG | 差值 |
+- 状态：已完成训练、测试推理和 Kaggle Code Submission。
+- 对照原则：以 V2 为对照，只改变训练图片的抽样方式。
+- 采样：`WeightedRandomSampler` 有放回抽样，类别权重为 `sqrt(max_count / class_count)`，并限制在 1～5 倍；每个 epoch 总步数保持不变。
+- C2 每个 epoch 的期望抽取次数由 198 增加至约 715。
+- Validation Dice：0.910129（相对 V2 -0.002136）。
+- Kaggle Public / Private Dice：0.86040 / 0.86793（相对 V2 -0.01329 / -0.00151）。
+- 0.5 阈值下 C2 正样本 Dice、检出召回率及测试集非空预测数仍均为 0。
+- Submission Ref：56199102。
+- 结论：该采样策略没有超过 V2，也没有解决 C2 检出问题；V2 仍是当前最佳版本。
+- 详细记录：[C2 平衡采样实验](experiments/C2_balanced_sampling_2026-09-13/README.md)。
+
+复现命令：
+
+```bash
+bash scripts/run_c2_balanced_kaggle.sh
+```
+
+## V1、V2 与 V3 对比
+
+| 指标 | V1：B0 | V2：C2-AUG | V3：C2-AUG + 平衡采样 |
 |---|---:|---:|---:|
-| Validation Dice | 0.906335 | **0.912265** | +0.005930 |
-| Kaggle Public Dice | 0.86086 | **0.87369** | +0.01283 |
-| Kaggle Private Dice | 0.85772 | **0.86944** | +0.01172 |
+| Validation Dice | 0.906335 | **0.912265** | 0.910129 |
+| Kaggle Public Dice | 0.86086 | **0.87369** | 0.86040 |
+| Kaggle Private Dice | 0.85772 | **0.86944** | 0.86793 |
 
-V2 是当前整体榜单成绩更好的版本，但不能声称已经解决 C2 检测问题。统一阈值 0.5 下，V2 的测试集 C2 非空预测仍为 0；Validation Dice 的提升主要来自 Class 3 和 Class 4。下一版本应补充 C2 正样本 Dice/召回率与独立阈值搜索，再单独验证过采样或 Focal-Dice。
+V2 仍是当前整体榜单成绩最好的版本，但不能声称已经解决 C2 检测问题。V3 补充的正样本 Dice 和检出召回率进一步确认：统一阈值 0.5 下，C1/C2 没有被检出。下一版本应优先检查各类输出概率并进行独立阈值搜索，再单独验证 Focal-Dice 或类别加权 BCE。
