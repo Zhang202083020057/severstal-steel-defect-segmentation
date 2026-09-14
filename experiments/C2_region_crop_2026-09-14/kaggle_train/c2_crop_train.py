@@ -9,6 +9,16 @@ from pathlib import Path
 
 
 def main() -> None:
+    wheel_matches = list(
+        Path("/kaggle/input").rglob("segmentation_models_pytorch-0.5.0-py3-none-any.whl")
+    )
+    if len(wheel_matches) != 1:
+        raise RuntimeError(f"Expected one offline SMP wheel, found: {wheel_matches}")
+    subprocess.check_call([
+        sys.executable, "-m", "pip", "install", "--quiet", "--no-index",
+        "--find-links", str(wheel_matches[0].parent), "Pillow==11.3.0",
+        "timm==1.0.29", "segmentation-models-pytorch==0.5.0",
+    ])
     source_dirs = [
         p.parent for p in Path("/kaggle/input").rglob("steel_common.py")
         if (p.parent / "train.py").is_file() and (p.parent / "predict.py").is_file()
