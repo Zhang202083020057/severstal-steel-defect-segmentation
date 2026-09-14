@@ -152,6 +152,8 @@ class SteelDataset(Dataset):
         transform: A.Compose,
         table: pd.DataFrame | None = None,
         c2_transform: A.Compose | None = None,
+        c2_crop: bool = False,
+        c2_crop_width: int = 800,
     ) -> None:
         if c2_transform is not None and table is None:
             raise ValueError("C2 augmentation requires an annotation table")
@@ -160,6 +162,8 @@ class SteelDataset(Dataset):
         self.transform = transform
         self.table = table
         self.c2_transform = c2_transform
+        self.c2_crop = c2_crop
+        self.c2_crop_width = c2_crop_width
 
     def __len__(self) -> int:
         return len(self.image_ids)
@@ -184,6 +188,23 @@ class SteelDataset(Dataset):
             and bool(str(row[2]).strip())
         ):
             transform = self.c2_transform
+            if self.c2_crop:
+                # Crop a random horizontal window that contains the C2 mask.
+                # The crop is applied only during training; validation remains
+                # on the original image distribution.
+                c2 = mask[..., 1]
+                ys, xs = np.where(c2 > 0)
+                crop_width = min(self.c2_crop_width, image.shape[1])
+                if len(xs) and crop_width < image.shape[1]:
+                    left_min = max(0, int(xs.max()) - crop_width + 1)
+                    left_max = min(int(xs.min()), image.shape[1] - crop_width)
+                    if left_min <= left_max:
+                        left = int(np.random.randint(left_min, left_max + 1))
+                    else:
+                        center = int((xs.min() + xs.max()) / 2)
+                        left = int(np.clip(center - crop_width // 2, 0, image.shape[1] - crop_width))
+                    image = image[:, left:left + crop_width]
+                    mask = mask[:, left:left + crop_width]
         result = transform(image=image, mask=mask)
         image_tensor = result["image"].float()
         mask_tensor = result["mask"].float()

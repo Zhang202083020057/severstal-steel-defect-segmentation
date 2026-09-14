@@ -96,6 +96,12 @@ def parse_args() -> argparse.Namespace:
             "this does not oversample or create new image files"
         ),
     )
+    parser.add_argument(
+        "--c2-crop",
+        action="store_true",
+        help="For C2 training images, randomly crop a horizontal window containing C2 before resizing",
+    )
+    parser.add_argument("--c2-crop-width", type=int, default=800)
     parser.add_argument("--height", type=int, default=256)
     parser.add_argument("--width", type=int, default=800)
     parser.add_argument("--epochs", type=int, default=15)
@@ -149,6 +155,8 @@ def main() -> None:
         train_transform,
         table,
         c2_transform=c2_transform,
+        c2_crop=args.c2_crop,
+        c2_crop_width=args.c2_crop_width,
     )
     valid_dataset = SteelDataset(
         args.data_dir / "train_images", val_ids, valid_transform, table
@@ -184,7 +192,8 @@ def main() -> None:
     print(f"positive masks train={class_counts(table, train_ids)} val={class_counts(table, val_ids)}")
     print(
         f"model={args.architecture}/{args.encoder}, loss={args.loss}, "
-        f"aug={args.augmentation}, c2_augmentation={args.c2_augmentation}"
+        f"aug={args.augmentation}, c2_augmentation={args.c2_augmentation}, "
+        f"c2_crop={args.c2_crop}"
     )
 
     best_score = -1.0
