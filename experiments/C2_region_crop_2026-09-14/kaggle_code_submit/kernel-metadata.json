@@ -1,0 +1,23 @@
+{
+  "id": "zhanshuguo/severstal-c2-region-crop-submit",
+  "title": "Severstal C2 Region Crop Submit",
+  "code_file": "c2_crop_submit.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_tpu": "false",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaTeslaT4",
+  "dataset_sources": [
+    "zhanshuguo/severstal-c2-training-source",
+    "zhanshuguo/severstal-b0-offline-wheels"
+  ],
+  "competition_sources": [
+    "severstal-steel-defect-detection"
+  ],
+  "kernel_sources": [
+    "zhanshuguo/severstal-c2-region-crop-train"
+  ],
+  "model_sources": []
+}

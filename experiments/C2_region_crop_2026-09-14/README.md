@@ -1,4 +1,4 @@
-# C2 region crop（待运行）
+# C2 region crop（已训练并提交）
 
 ## 目的
 
@@ -19,3 +19,16 @@
 ## Kaggle 运行
 
 运行 `kaggle_train/c2_crop_train.py`。完成后下载 `best_model.pt`、`history.csv` 和 `config.json`，再使用现有 `predict.py` 推理提交。
+
+## 实验结果
+
+- 训练 Kernel：`zhanshuguo/severstal-c2-region-crop-train` Version 3。
+- 最佳 Validation Dice：`0.911102`（epoch 10）。
+- 日志中的 Class 2 Dice：`0.980509`，但该指标被大量 C2 空样本主导，不能视为 C2 正样本检出成功。
+- 测试集非空预测：C1=0、C2=0、C3=1777、C4=308。
+- 推理参数：thresholds=`0.5,0.5,0.5,0.075`，min total pixels=`0,0,800,800`。
+- Submission Ref：`56235278`（等待评分）。
+
+## 当前结论
+
+C2 region crop 改善了训练时缺陷相对面积，但测试集 C2 仍为全空预测，因此它单独无法解决 C2 通道塌缩。下一步不应继续只调整 crop/阈值，应该考虑 C2 图像级存在性损失或独立 C2 二分类分割模型。

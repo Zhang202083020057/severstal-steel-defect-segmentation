@@ -80,9 +80,21 @@ bash scripts/run_c2_kaggle.sh
 - 以 V2 为对照，只把 `BCE+Dice` 改为 `Focal+Dice`，其余训练配置不变。
 - Validation Dice：0.905792。
 - C2 真实区域最大概率中位数仍为 0，C2 正样本 Dice 和检出 F1 仍为 0。
-- Submission Ref：56207881（当前等待排行榜评分）。
-- 结论：Focal-Dice 单独没有激活 C2 输出通道；待排行榜结果返回后补充 Public/Private 分数。
+- Kaggle Public / Private Dice：0.86886 / 0.87045。
+- Submission Ref：56207881。
+- 结论：Focal-Dice 单独没有激活 C2 输出通道，也没有超过 V4。
 - 详细记录：[C2 Focal-Dice 实验](experiments/C2_focal_dice_2026-09-13/README.md)。
+
+## V6｜C2 定向增强 + C2 region crop
+
+- 分支：`experiment/c2-region-crop`。
+- 以 V2 为基础，仅对含 C2 的训练图片截取一个保证包含 C2 的 800 像素宽窗口，再缩放到 256×800。
+- 验证集和测试集仍使用完整图片。
+- 最佳 Validation Dice：0.911102。
+- 测试集非空预测：C1=0、C2=0、C3=1777、C4=308。
+- C2 仍为全空预测，说明 region crop 单独没有解决 C2 通道塌缩。
+- Submission Ref：56235278（等待排行榜评分）。
+- 详细记录：[C2 region crop 实验](experiments/C2_region_crop_2026-09-14/README.md)。
 
 ## V1～V4 排行榜对比
 
